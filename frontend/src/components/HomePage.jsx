@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getTopics } from "../api/client.js";
 import TopicCard from "./TopicCard.jsx";
@@ -21,42 +21,58 @@ function Spinner() {
   );
 }
 
+function isWarmingUp(err) {
+  const msg = String(err?.message || err || "");
+  return (
+    msg.includes("Network Error") ||
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("ERR_CONNECTION_REFUSED") ||
+    msg.includes("Failed to fetch")
+  );
+}
+
 export default function HomePage() {
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [warmingUp, setWarmingUp] = useState(false);
+  const retryTimerRef = useRef(null);
 
-  useEffect(() => {
-    getTopics()
-      .then((data) => {
-        setTopics(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(
-          err?.response?.data?.detail ||
-            "Failed to load topics. Is the backend running?"
-        );
-        setLoading(false);
-      });
-  }, []);
-
-  function handleRetry() {
-    setError(null);
+  function fetchTopics() {
     setLoading(true);
+    setError(null);
+    setWarmingUp(false);
+
     getTopics()
       .then((data) => {
         setTopics(data);
         setLoading(false);
       })
       .catch((err) => {
-        setError(
-          err?.response?.data?.detail ||
-            "Failed to load topics. Is the backend running?"
-        );
+        if (isWarmingUp(err)) {
+          setWarmingUp(true);
+          setError(null);
+        } else {
+          setError(err?.response?.data?.detail || "Failed to load topics. Is the backend running?");
+        }
         setLoading(false);
       });
   }
+
+  // Initial fetch
+  useEffect(() => {
+    fetchTopics();
+  }, []);
+
+  // Auto-retry every 15 seconds while the server is warming up
+  useEffect(() => {
+    if (warmingUp) {
+      retryTimerRef.current = setTimeout(() => {
+        fetchTopics();
+      }, 15000);
+    }
+    return () => clearTimeout(retryTimerRef.current);
+  }, [warmingUp]);
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#0f172a" }}>
@@ -93,7 +109,48 @@ export default function HomePage() {
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px" }}>
         {loading && <Spinner />}
 
-        {error && (
+        {/* Warming-up state */}
+        {!loading && warmingUp && (
+          <div
+            style={{
+              backgroundColor: "#1c1500",
+              border: "1px solid #92400e",
+              borderRadius: 12,
+              padding: "28px 32px",
+              textAlign: "center",
+              color: "#fde68a",
+            }}
+          >
+            <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 10 }}>
+              ⏳ Backend is warming up...
+            </p>
+            <p style={{ fontSize: 14, color: "#fcd34d", marginBottom: 24, lineHeight: 1.6 }}>
+              The server is starting up (this takes ~30 seconds on free tier).
+              Please wait and click Retry.
+            </p>
+            <button
+              onClick={() => fetchTopics()}
+              style={{
+                backgroundColor: "#f59e0b",
+                color: "#0f172a",
+                border: "none",
+                padding: "10px 28px",
+                borderRadius: 8,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontSize: 14,
+              }}
+            >
+              Retry
+            </button>
+            <p style={{ marginTop: 16, fontSize: 12, color: "#92400e" }}>
+              Auto-retrying in 15 seconds…
+            </p>
+          </div>
+        )}
+
+        {/* Generic error state */}
+        {!loading && !warmingUp && error && (
           <div
             style={{
               backgroundColor: "#1e0a0a",
@@ -106,7 +163,7 @@ export default function HomePage() {
           >
             <p style={{ marginBottom: 16 }}>{error}</p>
             <button
-              onClick={handleRetry}
+              onClick={() => fetchTopics()}
               style={{
                 backgroundColor: "#f59e0b",
                 color: "#0f172a",
@@ -123,7 +180,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {!loading && !error && (
+        {!loading && !error && !warmingUp && (
           <>
             <p
               style={{
@@ -168,6 +225,10 @@ export default function HomePage() {
         }}
       >
         Powered by Groq AI + RAG Technology
+        <br />
+        <span style={{ fontSize: 11, color: "#334155", marginTop: 6, display: "inline-block" }}>
+          Note: First load may take 30-60 seconds as the server wakes from sleep.
+        </span>
       </footer>
     </div>
   );

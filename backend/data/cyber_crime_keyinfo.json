@@ -1,0 +1,25 @@
+{
+  "key_rights": [
+    "Right to electronic records",
+    "Right to digital signatures",
+    "Right to electronic governance",
+    "Right to privacy"
+  ],
+  "important_provisions": [
+    "Electronic records are valid",
+    "Digital signatures are valid",
+    "Cyber crimes are defined",
+    "Penalties are prescribed"
+  ],
+  "important_penalties": [
+    "Fine for cyber crimes",
+    "Imprisonment for cyber crimes",
+    "Both fine and imprisonment"
+  ],
+  "who_can_benefit": [
+    "Indian citizens",
+    "Foreign nationals",
+    "Businesses in India",
+    "Electronic commerce users"
+  ]
+}

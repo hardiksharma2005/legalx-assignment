@@ -5,7 +5,7 @@ import faiss
 from sentence_transformers import SentenceTransformer
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-MODEL_NAME = "all-MiniLM-L6-v2"
+MODEL_NAME = "paraphrase-MiniLM-L3-v2"
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list:

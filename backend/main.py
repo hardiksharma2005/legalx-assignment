@@ -11,7 +11,9 @@ Endpoints:
 """
 
 import os
+import gc
 import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -21,11 +23,24 @@ load_dotenv()
 
 # Import our AI pipeline modules
 import scraper
-import embedder
 import pipeline
 import rag
 
-app = FastAPI(title="Mini LegalX AI Knowledge Centre", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: force garbage collection to free memory
+    gc.collect()
+    yield
+    # Shutdown
+    gc.collect()
+
+
+app = FastAPI(
+    title="Mini LegalX AI Knowledge Centre",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 # Allow all origins so the React frontend (any host/port) can talk to this API
 app.add_middleware(
@@ -47,7 +62,7 @@ TOPIC_IDS = [
     "gst_registration",
 ]
 
-# Default card metadata used before Gemini generates richer descriptions
+# Default card metadata used before Groq generates richer descriptions
 DEFAULT_CARDS = {
     "pocso": {
         "id": "pocso",
@@ -111,18 +126,18 @@ def health_check():
 def get_topics():
     """
     Return the list of topic cards.
-    If Gemini-generated card data exists on disk, use it.
+    If Groq-generated card data exists on disk, use it.
     Otherwise fall back to the hardcoded defaults above.
     """
     cards = []
     for topic_id in TOPIC_IDS:
         try:
-            gemini_card = pipeline.generate_card(topic_id)
+            groq_card = pipeline.generate_card(topic_id)
             cards.append(
                 {
                     "id": topic_id,
-                    "name": gemini_card.get("name", DEFAULT_CARDS[topic_id]["name"]),
-                    "short_description": gemini_card.get(
+                    "name": groq_card.get("name", DEFAULT_CARDS[topic_id]["name"]),
+                    "short_description": groq_card.get(
                         "short_description",
                         DEFAULT_CARDS[topic_id]["short_description"],
                     ),
@@ -178,10 +193,7 @@ def get_topic_keyinfo(topic_id: str):
 
 @app.post("/api/topics/{topic_id}/ask", response_model=AskResponse)
 def ask_question(topic_id: str, body: AskRequest):
-    """
-    Answer a user question using RAG — retrieves relevant text chunks
-    from the FAISS index and grounds the Gemini response in them.
-    """
+    """Answer a user question using the scraped legal text as context."""
     _validate_topic(topic_id)
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
@@ -195,14 +207,17 @@ def ask_question(topic_id: str, body: AskRequest):
 @app.post("/api/pipeline/run")
 async def run_pipeline():
     """
-    Trigger the full data pipeline in a background thread:
-    1. Scrape Wikipedia pages for all 5 topics
-    2. Embed text into FAISS indexes for RAG
-    This is a long-running operation (~1-5 minutes).
+    Trigger the data pipeline in a background thread.
+    Scraper always runs. Embedder runs only if sentence-transformers is installed
+    (not required in the deployment environment).
     """
     def _run():
         scraper.run_all()
-        embedder.run_all()
+        try:
+            import embedder
+            embedder.run_all()
+        except Exception as e:
+            print(f"Embedder skipped (not available in this environment): {e}")
 
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _run)

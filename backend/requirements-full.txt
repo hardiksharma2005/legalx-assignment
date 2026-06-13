@@ -1,8 +1,10 @@
 fastapi
 uvicorn[standard]
 groq
-requests
+sentence-transformers
+faiss-cpu
 beautifulsoup4
+requests
 python-dotenv
 httpx
 pydantic

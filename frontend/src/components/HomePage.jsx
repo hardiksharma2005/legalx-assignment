@@ -167,7 +167,7 @@ export default function HomePage() {
           borderTop: "1px solid #1e293b",
         }}
       >
-        Powered by Gemini AI + RAG Technology
+        Powered by Groq AI + RAG Technology
       </footer>
     </div>
   );

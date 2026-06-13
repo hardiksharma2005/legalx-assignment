@@ -162,7 +162,7 @@ export default function TopicDetail() {
                 ⏳ AI Rate Limit Reached
               </p>
               <p style={{ fontSize: 14, marginBottom: 20 }}>
-                The Gemini API free tier limit has been reached. This is temporary — please wait
+                The Groq API free tier limit has been reached. This is temporary — please wait
                 1-2 minutes and refresh the page.
               </p>
               <button

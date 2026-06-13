@@ -12,12 +12,6 @@ venv/
 dist/
 *.egg-info/
 
-# FAISS indexes (large binary, not needed in source control)
-backend/data/*.faiss
-
-# Scraped text and Gemini-generated JSON (regenerate via pipeline)
-backend/data/*.txt
-backend/data/*.json
 
 # Node.js
 node_modules/
